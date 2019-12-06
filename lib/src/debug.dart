@@ -53,22 +53,23 @@ class _TraversalPainter extends CustomPainter {
         canvas.drawRect(node.rect, nodeBlue);
 
         if (node.hasPrimaryFocus) {
-          final left = const LeftDirectionResolver().resolveCandidates(node);
-          final right = const RightDirectionResolver().resolveCandidates(node);
-          final top = const TopDirectionResolver().resolveCandidates(node);
-          final bottom =
-              const BottomDirectionResolver().resolveCandidates(node);
-
           void drawLines(Offset origin, List<FocusCandidate> candidates) {
             for (final candidate in candidates) {
               canvas.drawLine(origin, candidate.node.rect.center, black);
             }
           }
 
-          drawLines(node.rect.centerLeft, left);
-          drawLines(node.rect.centerRight, right);
-          drawLines(node.rect.topCenter, top);
-          drawLines(node.rect.bottomCenter, bottom);
+          for (final resolver in [
+            const LeftDirectionResolver(),
+            const RightDirectionResolver(),
+            const TopDirectionResolver(),
+            const BottomDirectionResolver(),
+          ]) {
+            drawLines(
+              resolver.biasedCenter(node.rect, Directionality.of(node.context)),
+              resolver.resolveCandidates(node),
+            );
+          }
         }
       }
     }

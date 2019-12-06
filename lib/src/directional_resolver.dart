@@ -17,7 +17,12 @@ abstract class DirectionResolver {
 
   /// Computes an offset that is at the start of the main axis and the center
   /// of the cross axis from the given [rect].
-  Offset biasedCenter(Rect rect);
+  ///
+  /// Implementations may use the [textDirection] to determine a biased center.
+  ///
+  /// The [textDirection] may be null in a context where there is no text
+  /// direction.
+  Offset biasedCenter(Rect rect, TextDirection textDirection);
 
   /// Creates a rect from a [biasedCenter] offset that stretches into infinity
   /// in all directions except the start of the main axis.
@@ -42,7 +47,9 @@ abstract class DirectionResolver {
   List<FocusCandidate> resolveCandidates(FocusNode node, {Rect rect}) {
     rect ??= node.rect;
 
-    final cl = biasedCenter(rect);
+    final textDirection = Directionality.of(node.context);
+
+    final cl = biasedCenter(rect, textDirection);
 
     // Cast a line from the center to focus direction + infinity
     final infiniteRect = infiniteRectFor(cl);
@@ -120,7 +127,12 @@ class LeftDirectionResolver extends DirectionResolver
     with HorizontalDirectionResolver {
   const LeftDirectionResolver();
 
-  Offset biasedCenter(Rect rect) => rect.centerLeft;
+  Offset biasedCenter(Rect rect, TextDirection textDirection) =>
+      textDirection.selectNullable(
+        ltr: rect.topLeft.offsetBetween(rect.centerLeft),
+        rtl: rect.bottomLeft.offsetBetween(rect.centerLeft),
+        orElse: rect.centerLeft,
+      );
   Rect infiniteRectFor(Offset center) => Rect.fromLTRB(double.negativeInfinity,
       double.negativeInfinity, center.dx, double.infinity);
   Rect matchDimen(Rect infiniteRect, Rect originalRect) => Rect.fromLTRB(
@@ -147,7 +159,12 @@ class RightDirectionResolver extends DirectionResolver
     with HorizontalDirectionResolver {
   const RightDirectionResolver();
 
-  Offset biasedCenter(Rect rect) => rect.centerRight;
+  Offset biasedCenter(Rect rect, TextDirection textDirection) =>
+      textDirection.selectNullable(
+        ltr: rect.topRight.offsetBetween(rect.centerRight),
+        rtl: rect.bottomRight.offsetBetween(rect.centerRight),
+        orElse: rect.centerRight,
+      );
   Rect infiniteRectFor(Offset center) => Rect.fromLTRB(
       center.dx, double.negativeInfinity, double.infinity, double.infinity);
   Rect matchDimen(Rect infiniteRect, Rect originalRect) => Rect.fromLTRB(
@@ -171,7 +188,12 @@ class TopDirectionResolver extends DirectionResolver
     with VerticalDirectionResolver {
   const TopDirectionResolver();
 
-  Offset biasedCenter(Rect rect) => rect.topCenter;
+  Offset biasedCenter(Rect rect, TextDirection textDirection) =>
+      textDirection.selectNullable(
+        ltr: rect.topLeft.offsetBetween(rect.topCenter),
+        rtl: rect.topRight.offsetBetween(rect.topCenter),
+        orElse: rect.topCenter,
+      );
   Rect infiniteRectFor(Offset center) => Rect.fromLTRB(double.negativeInfinity,
       double.negativeInfinity, double.infinity, center.dy);
   Rect matchDimen(Rect infiniteRect, Rect originalRect) => Rect.fromLTRB(
@@ -188,7 +210,12 @@ class BottomDirectionResolver extends DirectionResolver
     with VerticalDirectionResolver {
   const BottomDirectionResolver();
 
-  Offset biasedCenter(Rect rect) => rect.bottomCenter;
+  Offset biasedCenter(Rect rect, TextDirection textDirection) =>
+      textDirection.selectNullable(
+        ltr: rect.bottomLeft.offsetBetween(rect.bottomCenter),
+        rtl: rect.bottomRight.offsetBetween(rect.bottomCenter),
+        orElse: rect.bottomCenter,
+      );
   Rect infiniteRectFor(Offset center) => Rect.fromLTRB(
       double.negativeInfinity, center.dy, double.infinity, double.infinity);
   Rect matchDimen(Rect infiniteRect, Rect originalRect) => Rect.fromLTRB(
@@ -199,4 +226,15 @@ class BottomDirectionResolver extends DirectionResolver
       );
 
   double mainAxisDist(Rect rect, Offset center) => rect.top - center.dy;
+}
+
+extension on Offset {
+  Offset offsetBetween(Offset other) => (this + other) * 0.5;
+}
+
+extension on TextDirection {
+  T selectNullable<T>({T ltr, T rtl, @required T orElse}) {
+    if (this == null) return orElse;
+    return (this == TextDirection.ltr ? ltr : rtl) ?? orElse;
+  }
 }
