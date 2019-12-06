@@ -3,13 +3,15 @@ import 'package:flutter/widgets.dart';
 class FocusCandidate {
   final FocusNode node;
   final double rank;
+  final double rank2;
 
-  const FocusCandidate(this.node, this.rank);
+  const FocusCandidate(this.node, this.rank, [this.rank2 = 0.0]);
 
-  FocusCandidate withRank(double rank) => FocusCandidate(node, rank);
+  FocusCandidate withRank(double rank, [double rank2]) =>
+      FocusCandidate(node, rank, rank2 ?? this.rank2);
 
   @override
-  String toString() => "$node - $rank";
+  String toString() => "$node - $rank & $rank2";
 }
 
 abstract class DirectionResolver {

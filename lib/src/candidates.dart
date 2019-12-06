@@ -42,10 +42,12 @@ class FocusCandidates {
     // Normalize ranks from 0.0 to 1.0 inside of our range.
 
     for (int i = 0; i < candidate.length; i++) {
-      final newRank =
-          min == max ? 0.0 : (candidate[i].rank - min) / (max - min);
+      final c = candidate[i];
+      final newRank = min == max ? 0.0 : (c.rank - min) / (max - min);
 
-      candidate[i] = candidate[i].withRank(newRank);
+      final newCandidate = candidate[i].withRank(newRank, c.rank);
+
+      candidate[i] = newCandidate;
     }
   }
 
@@ -60,6 +62,14 @@ class FocusCandidates {
             .resolveCandidates(node, rect: rect) {
     debugDumpCandidates("Initial candidates:");
 
+    // Candidates with their initial ranks:
+    final initialCandidateSet = _CandidateSet();
+
+    left.forEach(initialCandidateSet.add);
+    right.forEach(initialCandidateSet.add);
+    top.forEach(initialCandidateSet.add);
+    bottom.forEach(initialCandidateSet.add);
+
     normalizeRanks(left);
     normalizeRanks(right);
     normalizeRanks(top);
@@ -67,24 +77,23 @@ class FocusCandidates {
 
     debugDumpCandidates("Normalized candidates:");
 
-    final candidateSet = Map<FocusNode, FocusCandidate>.identity();
+    // Candidates with their normalized ranks:
+    final normalizedCandidateSet = _CandidateSet();
 
-    void addToSet(FocusCandidate c) {
-      candidateSet.update(
-        c.node,
-        (other) => other.rank < c.rank ? other : c,
-        ifAbsent: () => c,
-      );
-    }
+    left.forEach(normalizedCandidateSet.add);
+    right.forEach(normalizedCandidateSet.add);
+    top.forEach(normalizedCandidateSet.add);
+    bottom.forEach(normalizedCandidateSet.add);
 
-    left.forEach(addToSet);
-    right.forEach(addToSet);
-    top.forEach(addToSet);
-    bottom.forEach(addToSet);
+    final candidateSet = normalizedCandidateSet;
 
     void deduplicate(List<FocusCandidate> list) {
       list.retainWhere((c) => identical(c, candidateSet[c.node]));
     }
+
+    // TODO: Try to avoid deduplication getting rid of the most likely
+    // candidate, when both candidates have similar initial ranks and
+    // normalized ranks.
 
     deduplicate(left);
     deduplicate(right);
@@ -110,5 +119,39 @@ class FocusCandidates {
 
     assert(false);
     return const [];
+  }
+}
+
+class _CandidateSet {
+  final set = Map<FocusNode, FocusCandidate>.identity();
+
+  void add(FocusCandidate c) {
+    set.update(
+      c.node,
+      (other) {
+        if ((other.rank - c.rank).abs() < 0.05 && other.rank2 < c.rank2) {
+          return other;
+        }
+
+        return other.rank < c.rank ? other : c;
+      },
+      ifAbsent: () => c,
+    );
+  }
+
+  FocusCandidate operator [](FocusNode node) => set[node];
+
+  _CandidateSet combine(
+      _CandidateSet other,
+      FocusCandidate Function(FocusNode, FocusCandidate a, FocusCandidate b)
+          func) {
+    final out = _CandidateSet();
+
+    // We expect that all keys in A are also in B, otherwise this will not work.
+    set.forEach((node, a) {
+      out.set[node] = func(node, a, other[node]);
+    });
+
+    return out;
   }
 }
