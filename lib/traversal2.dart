@@ -2,10 +2,22 @@ library traversal2;
 
 import 'package:flutter/widgets.dart';
 import 'package:traversal2/src/candidates.dart';
+import 'package:traversal2/src/history.dart';
 
 export 'package:traversal2/src/debug.dart' show TraversalDebugger;
 
 mixin Traversal2Mixin on FocusTraversalPolicy {
+  final history = TraversalHistory();
+
+  @override
+  @mustCallSuper
+  void changedScope({FocusNode node, FocusScopeNode oldScope}) {
+    super.changedScope(node: node, oldScope: oldScope);
+    if (node.enclosingScope == null) {
+      history.clearHistoryFor(node);
+    }
+  }
+
   FocusNode _computeFocus(FocusNode node, TraversalDirection direction,
       {Rect rect}) {
     final candidates = FocusCandidates(node, rect: rect);
@@ -17,6 +29,12 @@ mixin Traversal2Mixin on FocusTraversalPolicy {
 
   @override
   bool inDirection(FocusNode node, TraversalDirection direction) {
+    final target = history.pop(node, direction);
+    if (target != null) {
+      target.requestFocus();
+      return true;
+    }
+
     final originalRect = node?.rect;
 
     while (node != null) {
@@ -29,6 +47,7 @@ mixin Traversal2Mixin on FocusTraversalPolicy {
 
       if (target != null) {
         target.requestFocus();
+        history.track(node, direction, target);
         return true;
       }
 
